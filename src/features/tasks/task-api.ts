@@ -44,3 +44,9 @@ export function updateTask(taskId: string, payload: UpdateTaskInput) {
     body: JSON.stringify(payload),
   });
 }
+
+export function deleteTask(taskId: string) {
+  return apiClient<null>(`/tasks/${taskId}`, {
+    method: "DELETE",
+  });
+}
