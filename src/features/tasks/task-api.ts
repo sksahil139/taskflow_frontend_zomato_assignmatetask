@@ -1,5 +1,10 @@
 import { apiClient } from "@/lib/api-client";
-import type { TaskListResponse } from "./task-types";
+import type {
+  CreateTaskInput,
+  Task,
+  TaskListResponse,
+  UpdateTaskInput,
+} from "./task-types";
 
 interface GetProjectTasksParams {
   projectId: string;
@@ -24,4 +29,18 @@ export function getProjectTasks(params: GetProjectTasksParams) {
     : `/projects/${params.projectId}/tasks`;
 
   return apiClient<TaskListResponse>(path);
+}
+
+export function createTask(projectId: string, payload: CreateTaskInput) {
+  return apiClient<Task>(`/projects/${projectId}/tasks`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateTask(taskId: string, payload: UpdateTaskInput) {
+  return apiClient<Task>(`/tasks/${taskId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }

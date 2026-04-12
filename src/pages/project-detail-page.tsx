@@ -1,12 +1,19 @@
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getProject } from "@/features/projects/project-api";
-import { getProjectTasks } from "@/features/tasks/task-api";
+import { getProjectTasks, updateTask } from "@/features/tasks/task-api";
 import { getStoredUser } from "@/features/auth/auth-storage";
-import { taskPriorityLabel, taskStatusLabel, taskStatusOptions } from "@/features/tasks/task-utils";
+import {
+  taskPriorityLabel,
+  taskStatusLabel,
+  taskStatusOptions,
+} from "@/features/tasks/task-utils";
+import { TaskDialog } from "@/features/tasks/task-dialog";
+import type { Task } from "@/features/tasks/task-types";
 import { PageState } from "@/components/shared/page-state";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,9 +27,12 @@ import {
 export default function ProjectDetailPage() {
   const { projectId } = useParams();
   const currentUser = getStoredUser();
+  const queryClient = useQueryClient();
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const projectQuery = useQuery({
     queryKey: ["project", projectId],
@@ -39,6 +49,17 @@ export default function ProjectDetailPage() {
         assignee: assigneeFilter === "all" ? undefined : assigneeFilter,
       }),
     enabled: Boolean(projectId),
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({ taskId, status }: { taskId: string; status: Task["status"] }) =>
+      updateTask(taskId, { status }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
+        queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] }),
+      ]);
+    },
   });
 
   const assigneeOptions = useMemo(() => {
@@ -98,13 +119,26 @@ export default function ProjectDetailPage() {
   return (
     <div className="space-y-6">
       <section className="rounded-xl border bg-card p-6">
-        <h2 className="text-2xl font-semibold">{project.name}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {project.description || "No description provided."}
-        </p>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Created {new Date(project.created_at).toLocaleDateString()}
-        </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold">{project.name}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {project.description || "No description provided."}
+            </p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Created {new Date(project.created_at).toLocaleDateString()}
+            </p>
+          </div>
+
+          <TaskDialog
+            projectId={projectId}
+            open={createOpen}
+            onOpenChange={setCreateOpen}
+            mode="create"
+            assigneeOptions={assigneeOptions}
+            trigger={<Button>Create task</Button>}
+          />
+        </div>
       </section>
 
       <section className="rounded-xl border bg-card p-6">
@@ -205,9 +239,11 @@ export default function ProjectDetailPage() {
                   </div>
                 </CardHeader>
 
-                <CardContent className="space-y-3 text-sm">
+                <CardContent className="space-y-4 text-sm">
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline">{taskPriorityLabel[task.priority]} priority</Badge>
+                    <Badge variant="outline">
+                      {taskPriorityLabel[task.priority]} priority
+                    </Badge>
                     <Badge variant="outline">
                       {task.assignee_id === currentUser?.id
                         ? "Assigned to me"
@@ -217,19 +253,64 @@ export default function ProjectDetailPage() {
                     </Badge>
                   </div>
 
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Quick status update</label>
+                    <Select
+                      value={task.status}
+                      onValueChange={(value) =>
+                        statusMutation.mutate({
+                          taskId: task.id,
+                          status: value as Task["status"],
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Update status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todo">To do</SelectItem>
+                        <SelectItem value="in_progress">In progress</SelectItem>
+                        <SelectItem value="done">Done</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <p className="text-muted-foreground">
-                    Due date: {task.due_date ? new Date(task.due_date).toLocaleDateString() : "No due date"}
+                    Due date:{" "}
+                    {task.due_date
+                      ? new Date(task.due_date).toLocaleDateString()
+                      : "No due date"}
                   </p>
 
                   <p className="text-muted-foreground">
                     Updated {new Date(task.updated_at).toLocaleDateString()}
                   </p>
+
+                  <div className="flex justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => setEditingTask(task)}
+                    >
+                      Edit task
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : null}
       </section>
+
+      <TaskDialog
+        projectId={projectId}
+        open={Boolean(editingTask)}
+        onOpenChange={(open) => {
+          if (!open) setEditingTask(null);
+        }}
+        mode="edit"
+        task={editingTask}
+        assigneeOptions={assigneeOptions}
+      />
     </div>
   );
 }
