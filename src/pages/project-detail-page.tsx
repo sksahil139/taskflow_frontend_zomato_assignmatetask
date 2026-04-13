@@ -1,32 +1,29 @@
+import { Link, useParams } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getProject } from "@/features/projects/project-api";
-import {
-  deleteTask,
-  getProjectTasks,
-  updateTask,
-} from "@/features/tasks/task-api";
 import { getStoredUser } from "@/features/auth/auth-storage";
+import { getUsers } from "@/features/auth/user-api";
+import { getProject } from "@/features/projects/project-api";
+import type { ProjectDetail } from "@/features/projects/projects-types";
+import { deleteTask, getProjectTasks, updateTask } from "@/features/tasks/task-api";
+import { TaskDialog } from "@/features/tasks/task-dialog";
+import type { Task, TaskListResponse } from "@/features/tasks/task-types";
 import {
   taskPriorityLabel,
   taskStatusLabel,
   taskStatusOptions,
 } from "@/features/tasks/task-utils";
-import { TaskDialog } from "@/features/tasks/task-dialog";
-import type { Task, TaskListResponse } from "@/features/tasks/task-types";
-import type { ProjectDetail } from "@/features/projects/projects-types";
 import { PageState } from "@/components/shared/page-state";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -44,11 +41,17 @@ export default function ProjectDetailPage() {
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
   const projectQuery = useQuery({
     queryKey: ["project", projectId],
     queryFn: () => getProject(projectId as string),
     enabled: Boolean(projectId),
+  });
+
+  const usersQuery = useQuery({
+    queryKey: ["users"],
+    queryFn: getUsers,
   });
 
   const tasksQuery = useQuery({
@@ -63,42 +66,32 @@ export default function ProjectDetailPage() {
   });
 
   const assigneeOptions = useMemo(() => {
-    const baseTasks = projectQuery.data?.tasks ?? [];
-    const uniqueAssigneeIds = Array.from(
-      new Set(baseTasks.map((task) => task.assignee_id).filter(Boolean)),
-    ) as string[];
+    const users = usersQuery.data?.users ?? [];
 
-    return uniqueAssigneeIds.map((id) => ({
-      value: id,
-      label: id === currentUser?.id ? "Me" : id,
+    return users.map((user) => ({
+      value: user.id,
+      label: user.id === currentUser?.id ? "Me" : user.name,
     }));
-  }, [projectQuery.data?.tasks, currentUser?.id]);
+  }, [usersQuery.data?.users, currentUser?.id]);
+
+  const assigneeMap = useMemo(() => {
+    const users = usersQuery.data?.users ?? [];
+    return new Map(users.map((user) => [user.id, user.name]));
+  }, [usersQuery.data?.users]);
 
   const statusMutation = useMutation({
-    mutationFn: ({
-      taskId,
-      status,
-    }: {
-      taskId: string;
-      status: Task["status"];
-    }) => updateTask(taskId, { status }),
+    mutationFn: ({ taskId, status }: { taskId: string; status: Task["status"] }) =>
+      updateTask(taskId, { status }),
 
     onMutate: async ({ taskId, status }) => {
-      const taskQueryKey = [
-        "project-tasks",
-        projectId,
-        statusFilter,
-        assigneeFilter,
-      ];
+      const taskQueryKey = ["project-tasks", projectId, statusFilter, assigneeFilter];
       const projectQueryKey = ["project", projectId];
 
       await queryClient.cancelQueries({ queryKey: taskQueryKey });
       await queryClient.cancelQueries({ queryKey: projectQueryKey });
 
-      const previousTasks =
-        queryClient.getQueryData<TaskListResponse>(taskQueryKey);
-      const previousProject =
-        queryClient.getQueryData<ProjectDetail>(projectQueryKey);
+      const previousTasks = queryClient.getQueryData<TaskListResponse>(taskQueryKey);
+      const previousProject = queryClient.getQueryData<ProjectDetail>(projectQueryKey);
 
       queryClient.setQueryData<TaskListResponse>(taskQueryKey, (old) => {
         if (!old) return old;
@@ -108,7 +101,7 @@ export default function ProjectDetailPage() {
           tasks: old.tasks.map((task) =>
             task.id === taskId
               ? { ...task, status, updated_at: new Date().toISOString() }
-              : task,
+              : task
           ),
         };
       });
@@ -121,7 +114,7 @@ export default function ProjectDetailPage() {
           tasks: old.tasks.map((task) =>
             task.id === taskId
               ? { ...task, status, updated_at: new Date().toISOString() }
-              : task,
+              : task
           ),
         };
       });
@@ -133,23 +126,16 @@ export default function ProjectDetailPage() {
       if (!context) return;
 
       queryClient.setQueryData(context.taskQueryKey, context.previousTasks);
-      queryClient.setQueryData(
-        context.projectQueryKey,
-        context.previousProject,
-      );
+      queryClient.setQueryData(context.projectQueryKey, context.previousProject);
     },
 
     onSettled: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
-        queryClient.invalidateQueries({
-          queryKey: ["project-tasks", projectId],
-        }),
+        queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] }),
       ]);
     },
   });
-
-  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: async (taskId: string) => {
@@ -162,9 +148,7 @@ export default function ProjectDetailPage() {
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
-        queryClient.invalidateQueries({
-          queryKey: ["project-tasks", projectId],
-        }),
+        queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] }),
       ]);
     },
   });
@@ -213,6 +197,12 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-6">
+      <div>
+        <Button asChild variant="ghost" className="px-0">
+          <Link to="/projects">← Back to projects</Link>
+        </Button>
+      </div>
+
       <section className="rounded-xl border bg-card p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -322,9 +312,7 @@ export default function ProjectDetailPage() {
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <CardTitle className="line-clamp-1">
-                        {task.title}
-                      </CardTitle>
+                      <CardTitle className="line-clamp-1">{task.title}</CardTitle>
                       <CardDescription className="mt-1 line-clamp-2">
                         {task.description || "No description provided."}
                       </CardDescription>
@@ -345,15 +333,13 @@ export default function ProjectDetailPage() {
                       {task.assignee_id === currentUser?.id
                         ? "Assigned to me"
                         : task.assignee_id
-                          ? `Assignee: ${task.assignee_id}`
+                          ? `Assignee: ${assigneeMap.get(task.assignee_id) ?? task.assignee_id}`
                           : "Unassigned"}
                     </Badge>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      Quick status update
-                    </label>
+                    <label className="text-sm font-medium">Quick status update</label>
                     <Select
                       value={task.status}
                       onValueChange={(value) =>
@@ -385,10 +371,11 @@ export default function ProjectDetailPage() {
                     Updated {new Date(task.updated_at).toLocaleDateString()}
                   </p>
 
-                  <div className="flex flex-wrap justify-end gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                     <Button
                       variant="outline"
                       onClick={() => setEditingTask(task)}
+                      className="w-full sm:w-auto"
                     >
                       Edit task
                     </Button>
@@ -397,13 +384,14 @@ export default function ProjectDetailPage() {
                       variant="destructive"
                       onClick={() => {
                         const confirmed = window.confirm(
-                          "Are you sure you want to delete this task?",
+                          "Are you sure you want to delete this task?"
                         );
                         if (confirmed) {
                           deleteMutation.mutate(task.id);
                         }
                       }}
                       disabled={deletingTaskId === task.id}
+                      className="w-full sm:w-auto"
                     >
                       {deletingTaskId === task.id ? "Deleting..." : "Delete"}
                     </Button>

@@ -65,7 +65,7 @@ export const handlers = [
         token: createToken(newUser),
         user: sanitizeUser(newUser),
       },
-      { status: 201 },
+      { status: 201 }
     );
   }),
 
@@ -90,19 +90,32 @@ export const handlers = [
 
     const db = getDb();
     const user = db.users.find(
-      (u) => u.email === email && u.password === password,
+      (u) => u.email === email && u.password === password
     );
 
     if (!user) {
       return HttpResponse.json(
         { error: "invalid credentials" },
-        { status: 401 },
+        { status: 401 }
       );
     }
 
     return HttpResponse.json({
       token: createToken(user),
       user: sanitizeUser(user),
+    });
+  }),
+
+  http.get(`${BASE_URL}/users`, async ({ request }) => {
+    await jsonDelay();
+
+    const auth = getUserFromAuthHeader(request.headers.get("authorization"));
+    if (!auth) return unauthorized();
+
+    const db = getDb();
+
+    return HttpResponse.json({
+      users: db.users.map((user) => sanitizeUser(user)),
     });
   }),
 
@@ -117,12 +130,12 @@ export const handlers = [
     const assignedProjectIds = new Set(
       db.tasks
         .filter((task) => task.assignee_id === auth.userId)
-        .map((task) => task.project_id),
+        .map((task) => task.project_id)
     );
 
     const projects = db.projects.filter(
       (project) =>
-        project.owner_id === auth.userId || assignedProjectIds.has(project.id),
+        project.owner_id === auth.userId || assignedProjectIds.has(project.id)
     );
 
     return HttpResponse.json({ projects });
@@ -172,7 +185,7 @@ export const handlers = [
 
     const hasAssignedTask = db.tasks.some(
       (task) =>
-        task.project_id === project.id && task.assignee_id === auth.userId,
+        task.project_id === project.id && task.assignee_id === auth.userId
     );
 
     const canAccess = project.owner_id === auth.userId || hasAssignedTask;
@@ -248,7 +261,7 @@ export const handlers = [
 
     const hasAssignedTask = db.tasks.some(
       (task) =>
-        task.project_id === project.id && task.assignee_id === auth.userId,
+        task.project_id === project.id && task.assignee_id === auth.userId
     );
 
     const canAccess = project.owner_id === auth.userId || hasAssignedTask;

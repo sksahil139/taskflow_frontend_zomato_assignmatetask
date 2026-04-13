@@ -105,7 +105,9 @@ export function TaskDialog({
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
-        queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] }),
+        queryClient.invalidateQueries({
+          queryKey: ["project-tasks", projectId],
+        }),
       ]);
 
       onOpenChange(false);
@@ -129,7 +131,7 @@ export function TaskDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
 
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

@@ -1,7 +1,8 @@
 import { getStoredToken } from "@/features/auth/auth-storage";
 import type { ApiErrorResponse } from "@/types/api";
 
-const API_BASE_URL = "http://localhost:4000";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
 export class ApiError extends Error {
   status: number;

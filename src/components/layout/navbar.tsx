@@ -14,15 +14,15 @@ export function Navbar() {
 
   return (
     <header className="border-b bg-background">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-        <div>
-          <h1 className="text-xl font-semibold">TaskFlow</h1>
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-semibold">TaskFlow</h1>
           {user ? (
-            <p className="text-sm text-muted-foreground">{user.name}</p>
+            <p className="truncate text-sm text-muted-foreground">{user.name}</p>
           ) : null}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <ThemeToggle />
           {user ? (
             <Button variant="outline" onClick={handleLogout}>

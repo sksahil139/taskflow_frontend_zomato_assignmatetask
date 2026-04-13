@@ -11,7 +11,13 @@ import {
 import { ApiError } from "@/lib/api-client";
 import { PageState } from "@/components/shared/page-state";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,7 +47,9 @@ export default function ProjectsPage() {
   });
 
   const rootError =
-    createMutation.error instanceof ApiError ? createMutation.error.message : null;
+    createMutation.error instanceof ApiError
+      ? createMutation.error.message
+      : null;
 
   return (
     <div className="space-y-6">
@@ -64,11 +72,17 @@ export default function ProjectsPage() {
 
         <form
           className="space-y-4"
-          onSubmit={form.handleSubmit((values) => createMutation.mutate(values))}
+          onSubmit={form.handleSubmit((values) =>
+            createMutation.mutate(values),
+          )}
         >
           <div className="space-y-2">
             <Label htmlFor="name">Project name</Label>
-            <Input id="name" {...form.register("name")} placeholder="Website Redesign" />
+            <Input
+              id="name"
+              {...form.register("name")}
+              placeholder="Website Redesign"
+            />
             {form.formState.errors.name ? (
               <p className="text-sm text-destructive">
                 {form.formState.errors.name.message}
@@ -140,15 +154,18 @@ export default function ProjectsPage() {
         {projectsQuery.isSuccess && projectsQuery.data.projects.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {projectsQuery.data.projects.map((project) => (
-              <Card key={project.id} className="rounded-xl">
+              <Card
+                key={project.id}
+                className="flex h-full flex-col rounded-xl"
+              >
                 <CardHeader>
                   <CardTitle className="line-clamp-1">{project.name}</CardTitle>
-                  <CardDescription className="line-clamp-2 min-h-10">
+                  <CardDescription className="line-clamp-3 min-h-[3.75rem]">
                     {project.description || "No description provided."}
                   </CardDescription>
                 </CardHeader>
 
-                <CardContent className="space-y-4">
+                <CardContent className="mt-auto space-y-4">
                   <p className="text-sm text-muted-foreground">
                     Created {new Date(project.created_at).toLocaleDateString()}
                   </p>
